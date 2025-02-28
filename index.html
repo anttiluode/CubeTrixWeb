@@ -197,7 +197,7 @@
       </div>
     </div>
   </div>
-
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -437,6 +437,7 @@
           this.cameraYaw = 0;
           this.setupEventListeners();
           this.lastTime = 0;
+          this.backgroundMusic = null;
           this.animate();
         }
         
@@ -480,7 +481,6 @@
             { name: 'step', filename: 'step.ogg' },
             { name: 'attack', filename: 'attack.ogg' }
           ];
-          
           console.log("Starting to load sound files...");
           const possiblePaths = [
             (filename) => `./assets/${filename}`,
@@ -489,7 +489,6 @@
             (filename) => `/assets/${filename}`,
             (filename) => `${filename}`
           ];
-          
           for (const sound of soundFiles) {
             let loaded = false;
             for (const pathFn of possiblePaths) {
@@ -511,7 +510,6 @@
               console.warn(`Could not load sound: ${sound.name}`);
             }
           }
-          
           console.log("Finished sound loading attempts");
         }
         
@@ -521,7 +519,10 @@
               if (this.gameStarted && !this.gameOver) {
                 this.pauseGame();
                 document.getElementById('mainMenu').style.display = 'block';
-                if (this.backgroundMusic) { this.backgroundMusic.stop(); }
+                if (this.backgroundMusic) {
+                  this.backgroundMusic.stop();
+                  this.backgroundMusic = null;
+                }
               }
             } else {
               this.keys[e.key.toLowerCase()] = true;
@@ -573,7 +574,10 @@
           document.getElementById('menuButton').addEventListener('click', () => {
             document.getElementById('gameOverMenu').style.display = 'none';
             document.getElementById('mainMenu').style.display = 'block';
-            if (this.backgroundMusic) { this.backgroundMusic.stop(); }
+            if (this.backgroundMusic) {
+              this.backgroundMusic.stop();
+              this.backgroundMusic = null;
+            }
           });
         }
         
@@ -596,6 +600,7 @@
         startGame() {
           if (this.backgroundMusic) {
             this.backgroundMusic.stop();
+            this.backgroundMusic = null;
           }
           this.gameStarted = true;
           this.gamePaused = false;
@@ -627,7 +632,10 @@
           document.getElementById('gameOverMenu').style.display = 'block';
           document.getElementById('finalScore').textContent = this.score;
           document.exitPointerLock();
-          if (this.backgroundMusic) { this.backgroundMusic.stop(); }
+          if (this.backgroundMusic) {
+            this.backgroundMusic.stop();
+            this.backgroundMusic = null;
+          }
           this.audioManager.playSound('death', { volume: 1.0 });
           speak(DEATH_PHRASES[Math.floor(Math.random() * DEATH_PHRASES.length)]);
         }

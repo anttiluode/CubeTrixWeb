@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CubeTrix - HTML5</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: #fff;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #uiContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #healthBar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 200px;
+            height: 20px;
+            background-color: #333;
+            border: 2px solid #fff;
+        }
+        #healthFill {
+            width: 100%;
+            height: 100%;
+            background-color: #3c3;
+        }
+        #armorBar {
+            position: absolute;
+            bottom: 50px;
+            left: 20px;
+            width: 200px;
+            height: 20px;
+            background-color: #333;
+            border: 2px solid #fff;
+        }
+        #armorFill {
+            width: 100%;
+            height: 100%;
+            background-color: #39f;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            text-shadow: 2px 2px 2px #000;
+        }
+        #quote {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            text-align: center;
+            text-shadow: 2px 2px 2px #000;
+            opacity: 0;
+            transition: opacity 0.5s;
+            width: 80%;
+            max-width: 800px;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: #fff;
+        }
+        #crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+            top: 0;
+        }
+        #crosshair::after {
+            width: 20px;
+            height: 2px;
+            left: 0;
+            top: 9px;
+        }
+        #mainMenu, #gameOverMenu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 400px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #39f;
+            text-align: center;
+            pointer-events: auto;
+        }
+        #mainMenu h1, #gameOverMenu h1 {
+            color: #f33;
+            font-size: 48px;
+            margin-top: 0;
+            text-shadow: 2px 2px 2px #000;
+        }
+        .menuButton {
+            display: block;
+            width: 200px;
+            margin: 10px auto;
+            padding: 10px;
+            background-color: #39f;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .menuButton:hover {
+            background-color: #27c;
+        }
+        #gameOverMenu {
+            display: none;
+        }
+        #helpMenu {
+            display: none;
+            padding: 30px;
+        }
+        #helpMenu h2 {
+            margin-top: 0;
+        }
+        /* Ad box completely removed */
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="uiContainer">
+            <div id="healthBar"><div id="healthFill"></div></div>
+            <div id="armorBar"><div id="armorFill"></div></div>
+            <div id="score">Score: 0</div>
+            <div id="quote"></div>
+            <div id="crosshair"></div>
+            
+            <div id="mainMenu">
+                <h1>CUBETRIX</h1>
+                <button id="startButton" class="menuButton">Start Game</button>
+                <button id="helpButton" class="menuButton">Help</button>
+                <button id="soundButton" class="menuButton">Sound: ON</button>
+                <button id="speechButton" class="menuButton">Speech: ON</button>
+                <div id="helpMenu">
+                    <h2>How to Play</h2>
+                    <p>
+                        <strong>Controls:</strong><br>
+                        WASD - Move<br>
+                        SPACE - Jump<br>
+                        SHIFT - Run<br>
+                        Left Click - Shoot
+                    </p>
+                    <p>
+                        <strong>Tips:</strong><br>
+                        - Shoot health pills and armor pickups to collect them<br>
+                        - Red cubes can't reach snowy peaks<br>
+                        - Collect green health pills and blue armor<br>
+                        - Use high ground to your advantage<br>
+                        - Keep moving to survive longer
+                    </p>
+                    <button id="backButton" class="menuButton">Back</button>
+                </div>
+            </div>
+            
+            <div id="gameOverMenu">
+                <h1>GAME OVER</h1>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <button id="restartButton" class="menuButton">Play Again</button>
+                <button id="menuButton" class="menuButton">Main Menu</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Ensure document is already loaded before accessing elements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Game Configuration
+            const GameConfig = {
+                soundEnabled: true,
+                speechEnabled: true,
+                quoteInterval: 20,
+                pickupInterval: 15,
+                gravity: -20,
+                jumpForce: 15,
+                fieldSize: 64,
+                renderDistance: 3,
+                chunkSize: 16,
+                terrainAmplitude: 30.0,  // Dramatically increased for more extreme terrain
+                correlationLength: 8.0   // Increased for wider mountains and valleys
+            };
+            
+            // Quotes for the game
+            const NARRATIVE_QUOTES = [
+                "You stuck your finger to a USB port and woke up in the Matrix.",
+                "The cubes. They're getting closer.",
+                "The cubes reminded you of Bob from accounting.",
+                "What can a man do to get out of here?",
+                "Yippie kai yay, Matrix cube!",
+                "Is this real? Are we real? Are cubes real?",
+                "The cubetrix never ends.",
+                "You remember that time you deleted System32. Good times.",
+                "The cubepocalypse is upon us!",
+                "The cubes remind me of cubicle.",
+                "These cubes are taking their geometry very seriously.",
+                "I think I was a cube in my previous life.",
+                "Surely the cubetrix has an ending.",
+                "What if I am a cube myself.",
+                "There are only so many cubes a man can take.",
+                "This place reminds me of, never mind, it reminds me of nothing.",
+                "The cubetrix smells kind of odd.",
+                "At least Neo was living in a more realistic world.",
+                "This simulation is lacking definition.",
+                "Perhaps I should try to find a backdoor, there must be one.",
+                "Is this a cube or am I dreaming.",
+                "Look at those mountain tops, let's go chill there for a while, the cubes don't like them.",
+                "In the digital world, everyone can hear you scream... in 8-bit."
+            ];
+
+            const ENEMY_DEATH_PHRASES = [
+                "Enemy has fallen!",
+                "Down goes the cube!",
+                "Cube smashed!",
+                "Boxes belong to recycling!",
+                "I am sorry cube, but there is only infinite amount of space here!",
+                "I did what I had to do!",
+                "I hope you won't be back!",
+                "Just give up already!",
+                "Target neutralized!",
+                "Cube destroyed!"
+            ];
+
+            const DEATH_PHRASES = [
+                "Game over, man!",
+                "Oh Johnny boy!",
+                "Back to real world!",
+                "Is reality any better?",
+                "I have seen c beams glittering in the dark!",
+                "It is time!",
+                "Finally, a way out of cubetrix!",
+                "Here comes the light!",
+                "You met your end!",
+                "System failure!",
+                "Critical damage detected!"
+            ];
+            
+            // Audio Manager with better path handling
+            class AudioManager {
+                constructor() {
+                    this.sounds = {};
+                    this.audioContext = null;
+                    this.masterGainNode = null;
+                    this.soundsLoaded = 0;
+                    this.soundsToLoad = 0;
+                    
+                    try {
+                        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                        this.audioContext = new AudioContext();
+                        this.masterGainNode = this.audioContext.createGain();
+                        this.masterGainNode.connect(this.audioContext.destination);
+                    } catch(e) {
+                        console.warn('Web Audio API not supported:', e);
+                    }
+                }
+                
+                async loadSound(name, url) {
+                    if (!this.audioContext) return Promise.resolve();
+                    
+                    this.soundsToLoad++;
+                    
+                    return new Promise((resolve, reject) => {
+                        const request = new XMLHttpRequest();
+                        request.open('GET', url, true);
+                        request.responseType = 'arraybuffer';
+                        
+                        request.onload = () => {
+                            if (request.status === 200) {
+                                this.audioContext.decodeAudioData(
+                                    request.response,
+                                    (buffer) => {
+                                        this.sounds[name] = buffer;
+                                        this.soundsLoaded++;
+                                        console.log(`Loaded sound: ${name} (${this.soundsLoaded}/${this.soundsToLoad})`);
+                                        resolve();
+                                    },
+                                    (error) => {
+                                        console.warn(`Error decoding sound ${name}:`, error);
+                                        this.soundsLoaded++;
+                                        resolve(); // Still resolve to continue loading other sounds
+                                    }
+                                );
+                            } else {
+                                console.warn(`Failed to load sound ${name}: HTTP status ${request.status}`);
+                                this.soundsLoaded++;
+                                resolve(); // Still resolve to continue loading other sounds
+                            }
+                        };
+                        
+                        request.onerror = (e) => {
+                            console.warn(`Failed to load sound ${name}:`, e);
+                            this.soundsLoaded++;
+                            resolve(); // Still resolve to continue loading other sounds
+                        };
+                        
+                        request.send();
+                    });
+                }
+                
+                playSound(name, options = {}) {
+                    if (!GameConfig.soundEnabled || !this.audioContext || !this.sounds[name]) {
+                        console.log(`Cannot play sound ${name}: ${!GameConfig.soundEnabled ? 'Sound disabled' : !this.audioContext ? 'No audio context' : 'Sound not loaded'}`);
+                        return { stop: () => {} };
+                    }
+                    
+                    try {
+                        console.log(`Playing sound: ${name}`);
+                        const source = this.audioContext.createBufferSource();
+                        source.buffer = this.sounds[name];
+                        
+                        const gainNode = this.audioContext.createGain();
+                        gainNode.gain.value = options.volume || 1;
+                        
+                        source.connect(gainNode);
+                        gainNode.connect(this.masterGainNode);
+                        
+                        if (options.loop) {
+                            source.loop = true;
+                        }
+                        
+                        // Resume audio context if it's suspended (needed for Chrome's autoplay policy)
+                        if (this.audioContext.state === 'suspended') {
+                            this.audioContext.resume();
+                        }
+                        
+                        source.start(0);
+                        
+                        return {
+                            source: source,
+                            stop: function() {
+                                try {
+                                    source.stop();
+                                } catch(e) {
+                                    console.warn('Error stopping sound:', e);
+                                }
+                            }
+                        };
+                    } catch(e) {
+                        console.warn(`Failed to play sound ${name}:`, e);
+                        return { stop: () => {} };
+                    }
+                }
+            }
+            
+            // Text-to-Speech
+            function speak(text) {
+                if (!GameConfig.speechEnabled) return;
+                
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.9;
+                    window.speechSynthesis.speak(utterance);
+                    
+                    // Display quote on screen
+                    const quoteElement = document.getElementById('quote');
+                    quoteElement.textContent = text;
+                    quoteElement.style.opacity = '1';
+                    
+                    setTimeout(() => {
+                        quoteElement.style.opacity = '0';
+                    }, 5000);
+                }
+            }
+            
+            // ThinkingField
+            class ThinkingField {
+                constructor(size = 64, correlation = GameConfig.correlationLength, amplitude = GameConfig.terrainAmplitude) {
+                    this.size = size;
+                    this.correlation = correlation;
+                    this.amplitude = amplitude;
+                    console.log(`Initializing terrain with amplitude: ${amplitude}`);
+                    this.field = this.generateField();
+                }
+                
+                generateField() {
+                    const field = [];
+                    
+                    // Initialize with random values
+                    for (let x = 0; x < this.size; x++) {
+                        field[x] = [];
+                        for (let z = 0; z < this.size; z++) {
+                            field[x][z] = Math.random() * 2 - 1;
+                        }
+                    }
+                    
+                    // Apply simple smoothing (approximating gaussian filter)
+                    const smoothedField = [];
+                    for (let x = 0; x < this.size; x++) {
+                        smoothedField[x] = [];
+                        for (let z = 0; z < this.size; z++) {
+                            let sum = 0;
+                            let count = 0;
+                            
+                            for (let dx = -Math.floor(this.correlation); dx <= Math.floor(this.correlation); dx++) {
+                                for (let dz = -Math.floor(this.correlation); dz <= Math.floor(this.correlation); dz++) {
+                                    const nx = (x + dx + this.size) % this.size;
+                                    const nz = (z + dz + this.size) % this.size;
+                                    
+                                    // Weight based on distance
+                                    const weight = Math.exp(-(dx*dx + dz*dz) / (2 * this.correlation * this.correlation));
+                                    sum += field[nx][nz] * weight;
+                                    count += weight;
+                                }
+                            }
+                            
+                            smoothedField[x][z] = (sum / count) * this.amplitude;
+                        }
+                    }
+                    
+                    return smoothedField;
+                }
+                
+                getHeight(x, z) {
+                    x = Math.floor(x) % this.size;
+                    z = Math.floor(z) % this.size;
+                    
+                    if (x < 0) x += this.size;
+                    if (z < 0) z += this.size;
+                    
+                    return this.field[x][z];
+                }
+            }
+            
+            // CubeTrix Game
+            class CubeTrixGame {
+                constructor() {
+                    this.canvas = document.getElementById('gameCanvas');
+                    this.scoreElement = document.getElementById('score');
+                    this.healthFill = document.getElementById('healthFill');
+                    this.armorFill = document.getElementById('armorFill');
+                    
+                    // Game state
+                    this.gameStarted = false;
+                    this.gamePaused = false;
+                    this.gameOver = false;
+                    this.score = 0;
+                    
+                    // Setup Three.js
+                    this.setupThreeJS();
+                    
+                    // Setup audio
+                    this.audioManager = new AudioManager();
+                    this.loadSounds();
+                    
+                    // Create thinking field
+                    this.field = new ThinkingField(GameConfig.fieldSize);
+                    
+                    // Game objects
+                    this.player = null;
+                    this.weapon = null;
+                    this.enemies = [];
+                    this.pickups = [];
+                    this.bullets = [];
+                    
+                    // Terrain chunks
+                    this.terrainChunks = {};
+                    
+                    // Game timers
+                    this.enemySpawnTimer = 0;
+                    this.enemySpawnInterval = 3;
+                    this.quoteTimer = 0;
+                    this.pickupTimer = 0;
+                    
+                    // Input handling
+                    this.keys = {};
+                    
+                    // Track camera pitch and yaw separately to keep horizon level
+                    this.cameraPitch = 0;
+                    this.cameraYaw = 0;
+                    
+                    this.setupEventListeners();
+                    
+                    // Start animation loop
+                    this.lastTime = 0;
+                    this.animate();
+                }
+                
+                setupThreeJS() {
+                    // Create scene
+                    this.scene = new THREE.Scene();
+                    this.scene.background = new THREE.Color(0x87CEEB);  // Sky blue
+                    
+                    // Create camera
+                    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                    this.camera.position.set(32, 10, 32);
+                    
+                    // Create renderer
+                    this.renderer = new THREE.WebGLRenderer({
+                        canvas: this.canvas,
+                        antialias: true
+                    });
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                    this.renderer.shadowMap.enabled = true;
+                    
+                    // Add fog for distance fading
+                    this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.01);
+                    
+                    // Add ambient light
+                    const ambientLight = new THREE.AmbientLight(0x404040);
+                    this.scene.add(ambientLight);
+                    
+                    // Add directional light (sun)
+                    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+                    sunLight.position.set(50, 50, 50);
+                    sunLight.castShadow = true;
+                    this.scene.add(sunLight);
+                    
+                    // Setup shadow properties
+                    sunLight.shadow.mapSize.width = 2048;
+                    sunLight.shadow.mapSize.height = 2048;
+                    sunLight.shadow.camera.near = 0.5;
+                    sunLight.shadow.camera.far = 500;
+                    sunLight.shadow.camera.left = -100;
+                    sunLight.shadow.camera.right = 100;
+                    sunLight.shadow.camera.top = 100;
+                    sunLight.shadow.camera.bottom = -100;
+                    
+                    // For raycasting
+                    this.raycaster = new THREE.Raycaster();
+                    this.mouse = new THREE.Vector2();
+                }
+                
+                async loadSounds() {
+                    // Try to load sounds from multiple potential locations
+                    const soundFiles = [
+                        { name: 'start', filename: 'start.ogg' },
+                        { name: 'background', filename: 'game.ogg' },
+                        { name: 'shoot', filename: 'shoot.ogg' },
+                        { name: 'jump', filename: 'jump.ogg' },
+                        { name: 'death', filename: 'death.ogg' },
+                        { name: 'enemyDeath', filename: 'cubedeath.ogg' },
+                        { name: 'pickup', filename: 'nom.ogg' },
+                        { name: 'armor', filename: 'armor.ogg' },
+                        { name: 'step', filename: 'step.ogg' },
+                        { name: 'attack', filename: 'attack.ogg' }
+                    ];
+                    
+                    console.log("Starting to load sound files...");
+                    
+                    // Try multiple paths for each sound file
+                    const possiblePaths = [
+                        (filename) => `./assets/${filename}`,
+                        (filename) => `../assets/${filename}`,
+                        (filename) => `./${filename}`,
+                        (filename) => `/assets/${filename}`,
+                        (filename) => `${filename}`
+                    ];
+                    
+                    for (const sound of soundFiles) {
+                        let loaded = false;
+                        for (const pathFn of possiblePaths) {
+                            if (!loaded) {
+                                const path = pathFn(sound.filename);
+                                console.log(`Trying to load ${sound.name} from ${path}`);
+                                try {
+                                    await this.audioManager.loadSound(sound.name, path);
+                                    if (this.audioManager.sounds[sound.name]) {
+                                        console.log(`Successfully loaded ${sound.name} from ${path}`);
+                                        loaded = true;
+                                    }
+                                } catch (e) {
+                                    console.warn(`Failed to load ${sound.name} from ${path}`);
+                                }
+                            }
+                        }
+                        
+                        if (!loaded) {
+                            console.warn(`Could not load sound: ${sound.name}`);
+                        }
+                    }
+                    
+                    console.log("Finished sound loading attempts");
+                }
+                
+                setupEventListeners() {
+                    // Keyboard events
+                    window.addEventListener('keydown', (e) => this.keys[e.key.toLowerCase()] = true);
+                    window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
+                    
+                    // Mouse events for shooting with automatic fire while holding button
+                    this.canvas.addEventListener('mousedown', () => {
+                        if (this.gameStarted && !this.gamePaused && !this.gameOver) {
+                            this.keys['mouse1'] = true;
+                            
+                            // Lock pointer if not already locked
+                            if (document.pointerLockElement !== this.canvas) {
+                                this.canvas.requestPointerLock();
+                            }
+                        }
+                    });
+                    
+                    this.canvas.addEventListener('mouseup', () => {
+                        this.keys['mouse1'] = false;
+                    });
+                    
+                    // Mouse movement for camera control
+                    document.addEventListener('mousemove', (e) => {
+                        if (document.pointerLockElement === this.canvas) {
+                            this.rotateCamera(e.movementX, e.movementY);
+                        }
+                    });
+                    
+                    // Pointer lock change
+                    document.addEventListener('pointerlockchange', () => {
+                        if (document.pointerLockElement !== this.canvas && this.gameStarted && !this.gameOver) {
+                            this.pauseGame();
+                        }
+                    });
+                    
+                    // Window resize
+                    window.addEventListener('resize', () => this.onWindowResize());
+                    
+                    // Menu buttons
+                    document.getElementById('startButton').addEventListener('click', () => this.startGame());
+                    document.getElementById('helpButton').addEventListener('click', () => {
+                        document.getElementById('helpMenu').style.display = 'block';
+                        document.getElementById('startButton').style.display = 'none';
+                        document.getElementById('helpButton').style.display = 'none';
+                        document.getElementById('soundButton').style.display = 'none';
+                        document.getElementById('speechButton').style.display = 'none';
+                    });
+                    document.getElementById('backButton').addEventListener('click', () => {
+                        document.getElementById('helpMenu').style.display = 'none';
+                        document.getElementById('startButton').style.display = 'block';
+                        document.getElementById('helpButton').style.display = 'block';
+                        document.getElementById('soundButton').style.display = 'block';
+                        document.getElementById('speechButton').style.display = 'block';
+                    });
+                    document.getElementById('soundButton').addEventListener('click', () => this.toggleSound());
+                    document.getElementById('speechButton').addEventListener('click', () => this.toggleSpeech());
+                    document.getElementById('restartButton').addEventListener('click', () => this.resetGame());
+                    document.getElementById('menuButton').addEventListener('click', () => {
+                        document.getElementById('gameOverMenu').style.display = 'none';
+                        document.getElementById('mainMenu').style.display = 'block';
+                    });
+                }
+                
+                toggleSound() {
+                    GameConfig.soundEnabled = !GameConfig.soundEnabled;
+                    document.getElementById('soundButton').textContent = `Sound: ${GameConfig.soundEnabled ? 'ON' : 'OFF'}`;
+                }
+                
+                toggleSpeech() {
+                    GameConfig.speechEnabled = !GameConfig.speechEnabled;
+                    document.getElementById('speechButton').textContent = `Speech: ${GameConfig.speechEnabled ? 'ON' : 'OFF'}`;
+                }
+                
+                onWindowResize() {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+                
+                startGame() {
+                    this.gameStarted = true;
+                    this.gamePaused = false;
+                    this.gameOver = false;
+                    
+                    // Hide menu
+                    document.getElementById('mainMenu').style.display = 'none';
+                    
+                    // Create player
+                    this.createPlayer();
+                    
+                    // Lock pointer
+                    this.canvas.requestPointerLock();
+                    
+                    // Play background music
+                    this.backgroundMusic = this.audioManager.playSound('background', { loop: true, volume: 0.5 });
+                    
+                    // Spawn initial enemies
+                    this.spawnInitialEnemies();
+                    
+                    // Welcome message
+                    speak("You put your finger in a USB socket and found yourself in CubeTrix.");
+                }
+                
+                pauseGame() {
+                    if (!this.gameStarted || this.gameOver) return;
+                    
+                    this.gamePaused = true;
+                    document.getElementById('mainMenu').style.display = 'block';
+                    document.exitPointerLock();
+                }
+                
+                resumeGame() {
+                    if (!this.gameStarted || this.gameOver) return;
+                    
+                    this.gamePaused = false;
+                    document.getElementById('mainMenu').style.display = 'none';
+                    this.canvas.requestPointerLock();
+                }
+                
+                gameOverScreen() {
+                    this.gameOver = true;
+                    document.getElementById('gameOverMenu').style.display = 'block';
+                    document.getElementById('finalScore').textContent = this.score;
+                    document.exitPointerLock();
+                    
+                    // Play death sound
+                    this.audioManager.playSound('death', { volume: 1.0 });
+                    
+                    // Death message
+                    speak(DEATH_PHRASES[Math.floor(Math.random() * DEATH_PHRASES.length)]);
+                }
+                
+                resetGame() {
+                    // Reset game state
+                    this.score = 0;
+                    this.updateScore();
+                    
+                    // Clear all entities
+                    this.clearEntities();
+                    
+                    // Hide game over menu
+                    document.getElementById('gameOverMenu').style.display = 'none';
+                    
+                    // Start new game
+                    this.startGame();
+                }
+                
+                clearEntities() {
+                    // Remove all enemies
+                    for (const enemy of this.enemies) {
+                        this.scene.remove(enemy.mesh);
+                    }
+                    this.enemies = [];
+                    
+                    // Remove all pickups
+                    for (const pickup of this.pickups) {
+                        this.scene.remove(pickup.mesh);
+                    }
+                    this.pickups = [];
+                    
+                    // Remove all bullets
+                    for (const bullet of this.bullets) {
+                        this.scene.remove(bullet.mesh);
+                    }
+                    this.bullets = [];
+                    
+                    // Remove player
+                    if (this.player && this.player.mesh) {
+                        this.scene.remove(this.player.mesh);
+                    }
+                    
+                    // Remove weapon
+                    if (this.weapon && this.weapon.mesh) {
+                        this.scene.remove(this.weapon.mesh);
+                    }
+                }
+                
+                createPlayer() {
+                    // Create player object
+                    this.player = {
+                        position: new THREE.Vector3(32, 10, 32),
+                        velocity: new THREE.Vector3(0, 0, 0),
+                        rotation: new THREE.Euler(0, 0, 0),
+                        health: 100,
+                        maxHealth: 100,
+                        armor: 100,
+                        maxArmor: 100,
+                        isGrounded: false,
+                        height: 2,
+                        speed: 10,
+                        mesh: null
+                    };
+                    
+                    // Create player mesh (invisible in first person)
+                    const geometry = new THREE.BoxGeometry(1, 2, 1);
+                    const material = new THREE.MeshLambertMaterial({ color: 0x39f });
+                    this.player.mesh = new THREE.Mesh(geometry, material);
+                    this.player.mesh.position.copy(this.player.position);
+                    this.player.mesh.castShadow = true;
+                    this.player.mesh.receiveShadow = true;
+                    this.scene.add(this.player.mesh);
+                    
+                    // Create weapon
+                    this.createWeapon();
+                    
+                    // Update health display
+                    this.updateHealthDisplay();
+                }
+                
+                createWeapon() {
+                    // Create weapon model - improved look
+                    const weaponGroup = new THREE.Group();
+                    
+                    // Main barrel
+                    const barrelGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.6);
+                    const barrelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+                    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+                    barrel.position.set(0, 0, -0.3);
+                    weaponGroup.add(barrel);
+                    
+                    // Grip
+                    const gripGeometry = new THREE.BoxGeometry(0.08, 0.2, 0.1);
+                    const gripMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+                    const grip = new THREE.Mesh(gripGeometry, gripMaterial);
+                    grip.position.set(0, -0.15, 0);
+                    weaponGroup.add(grip);
+                    
+                    // Sight
+                    const sightGeometry = new THREE.BoxGeometry(0.02, 0.05, 0.02);
+                    const sightMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+                    const sight = new THREE.Mesh(sightGeometry, sightMaterial);
+                    sight.position.set(0, 0.08, -0.1);
+                    weaponGroup.add(sight);
+                    
+                    // Position weapon in view
+                    weaponGroup.position.set(0.3, -0.25, -0.5);
+                    
+                    // Create weapon object
+                    this.weapon = {
+                        mesh: weaponGroup
+                    };
+                    
+                    // Attach to camera
+                    this.camera.add(weaponGroup);
+                }
+                
+                shoot() {
+                    if (!this.weapon) return;
+                    
+                    // Play shoot sound
+                    this.audioManager.playSound('shoot', { volume: 0.8 });
+                    
+                    // Create bullet direction
+                    const bulletDirection = new THREE.Vector3(0, 0, -1);
+                    bulletDirection.applyQuaternion(this.camera.quaternion);
+                    
+                    // Create bullet
+                    this.createBullet(this.camera.position.clone(), bulletDirection);
+                    
+                    // Simple recoil animation
+                    const weaponKickback = { x: 0, y: 0, z: -0.1 };
+                    const originalPosition = { 
+                        x: this.weapon.mesh.position.x,
+                        y: this.weapon.mesh.position.y,
+                        z: this.weapon.mesh.position.z
+                    };
+                    
+                    // Apply kickback
+                    this.weapon.mesh.position.z += weaponKickback.z;
+                    
+                    // Reset position after a short delay
+                    setTimeout(() => {
+                        if (this.weapon && this.weapon.mesh) {
+                            this.weapon.mesh.position.set(
+                                originalPosition.x,
+                                originalPosition.y,
+                                originalPosition.z
+                            );
+                        }
+                    }, 50);
+                }
+                
+                createBullet(position, direction) {
+                    // Create bullet geometry
+                    const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+                    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.copy(position);
+                    
+                    // Add bullet to scene
+                    this.scene.add(mesh);
+                    
+                    // Create bullet object
+                    const bullet = {
+                        mesh: mesh,
+                        direction: direction,
+                        speed: 50,
+                        lifetime: 2,
+                        damage: 25
+                    };
+                    
+                    // Add to bullets array
+                    this.bullets.push(bullet);
+                }
+                
+                spawnInitialEnemies() {
+                    for (let i = 0; i < 8; i++) {
+                        this.spawnEnemy();
+                    }
+                }
+                
+                spawnEnemy() {
+                    // Calculate spawn position
+                    const minDistance = 15;
+                    const maxDistance = 30;
+                    const spawnDistance = minDistance + Math.random() * (maxDistance - minDistance);
+                    const angle = Math.random() * Math.PI * 2;
+                    
+                    const x = this.player.position.x + Math.cos(angle) * spawnDistance;
+                    const z = this.player.position.z + Math.sin(angle) * spawnDistance;
+                    const y = this.field.getHeight(x, z) + 20;  // Spawn high to fall down
+                    
+                    // Randomize enemy size and color
+                    const size = 1.5 + Math.random() * 2.5;
+                    const colors = [0xff0000, 0x0000ff, 0x00ff00, 0xffff00, 0xff00ff, 0x00ffff, 0xffa500];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    // Create enemy geometry
+                    const geometry = new THREE.BoxGeometry(size, size * 2, size);
+                    const material = new THREE.MeshLambertMaterial({ color: color });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.set(x, y, z);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    
+                    // Add to scene
+                    this.scene.add(mesh);
+                    
+                    // Create enemy object
+                    const enemy = {
+                        mesh: mesh,
+                        originalColor: color,
+                        health: 100,
+                        speed: 6,
+                        searchRadius: 25,
+                        attackRange: 5,
+                        attackCooldown: 1.5,
+                        attackTimer: 0,
+                        damage: 15 * (size / 1.5),
+                        velocity: new THREE.Vector3(0, 0, 0),
+                        isGrounded: false,
+                        size: size
+                    };
+                    
+                    // Add to enemies array
+                    this.enemies.push(enemy);
+                }
+                
+                spawnPickup() {
+                    // Calculate random position near player
+                    const x = this.player.position.x + (Math.random() * 40 - 20);
+                    const z = this.player.position.z + (Math.random() * 40 - 20);
+                    const y = this.field.getHeight(x, z) + 20;  // Spawn high to fall down
+                    
+                    // Determine pickup type (health or armor)
+                    const isHealthPickup = Math.random() < 0.7;
+                    
+                    // Create pickup geometry
+                    const geometry = isHealthPickup ? 
+                        new THREE.SphereGeometry(0.3, 8, 8) : 
+                        new THREE.BoxGeometry(0.3, 0.3, 0.3);
+                        
+                    const material = new THREE.MeshLambertMaterial({ 
+                        color: isHealthPickup ? 0x00ff00 : 0x00aaff,
+                        emissive: isHealthPickup ? 0x00ff00 : 0x00aaff,
+                        emissiveIntensity: 0.3
+                    });
+                    
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.set(x, y, z);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    
+                    // Add to scene
+                    this.scene.add(mesh);
+                    
+                    // Create pickup object
+                    const pickup = {
+                        mesh: mesh,
+                        type: isHealthPickup ? 'health' : 'armor',
+                        amount: 50,
+                        rotationSpeed: 2
+                    };
+                    
+                    // Add to pickups array
+                    this.pickups.push(pickup);
+                }
+                
+                getColorFromHeight(height) {
+                    // Adjusted height thresholds for more dramatic terrain
+                    if (height < -10) {
+                        return new THREE.Color(0.2, 0.1, 0.05);  // Very dark brown for deep areas
+                    } else if (height < -5) {
+                        return new THREE.Color(0.3, 0.2, 0.1);  // Dark brown for very low areas
+                    } else if (height < 0) {
+                        return new THREE.Color(0.6, 0.3, 0.2);  // Brown for low areas
+                    } else if (height < 8) {
+                        return new THREE.Color(0.9, 0.8, 0.5);  // Sand
+                    } else if (height < 16) {
+                        return new THREE.Color(0.2, 0.8, 0.2);  // Grass
+                    } else if (height < 24) {
+                        return new THREE.Color(0.5, 0.5, 0.5);  // Mountain
+                    } else {
+                        return new THREE.Color(1, 1, 1);        // Snow
+                    }
+                }
+                
+                updateTerrain() {
+                    const playerChunkX = Math.floor(this.player.position.x / GameConfig.chunkSize);
+                    const playerChunkZ = Math.floor(this.player.position.z / GameConfig.chunkSize);
+                    
+                    // Generate or update chunks within render distance
+                    for (let dx = -GameConfig.renderDistance; dx <= GameConfig.renderDistance; dx++) {
+                        for (let dz = -GameConfig.renderDistance; dz <= GameConfig.renderDistance; dz++) {
+                            const chunkX = playerChunkX + dx;
+                            const chunkZ = playerChunkZ + dz;
+                            const chunkKey = `${chunkX},${chunkZ}`;
+                            
+                            if (!this.terrainChunks[chunkKey]) {
+                                this.generateChunk(chunkX, chunkZ);
+                            }
+                        }
+                    }
+                    
+                    // Remove chunks outside render distance
+                    for (const chunkKey in this.terrainChunks) {
+                        const [x, z] = chunkKey.split(',').map(Number);
+                        if (Math.abs(x - playerChunkX) > GameConfig.renderDistance || 
+                            Math.abs(z - playerChunkZ) > GameConfig.renderDistance) {
+                            this.scene.remove(this.terrainChunks[chunkKey]);
+                            delete this.terrainChunks[chunkKey];
+                        }
+                    }
+                }
+                
+                generateChunk(chunkX, chunkZ) {
+                    const chunkKey = `${chunkX},${chunkZ}`;
+                    if (this.terrainChunks[chunkKey]) return;
+                    
+                    // Create geometry for the chunk
+                    const geometry = new THREE.BufferGeometry();
+                    const vertices = [];
+                    const indices = [];
+                    const colors = [];
+                    const uvs = [];
+                    
+                    // Generate mesh for the chunk
+                    for (let x = 0; x < GameConfig.chunkSize; x++) {
+                        for (let z = 0; z < GameConfig.chunkSize; z++) {
+                            const worldX = chunkX * GameConfig.chunkSize + x;
+                            const worldZ = chunkZ * GameConfig.chunkSize + z;
+                            
+                            // Get heights for each corner of the quad
+                            const h1 = this.field.getHeight(worldX, worldZ);
+                            const h2 = this.field.getHeight(worldX + 1, worldZ);
+                            const h3 = this.field.getHeight(worldX, worldZ + 1);
+                            const h4 = this.field.getHeight(worldX + 1, worldZ + 1);
+                            
+                            // Add vertices
+                            const baseIndex = vertices.length / 3;
+                            
+                            // Vertex 1
+                            vertices.push(x, h1, z);
+                            colors.push(...this.getColorFromHeight(h1).toArray());
+                            uvs.push(x / GameConfig.chunkSize, z / GameConfig.chunkSize);
+                            
+                            // Vertex 2
+                            vertices.push(x + 1, h2, z);
+                            colors.push(...this.getColorFromHeight(h2).toArray());
+                            uvs.push((x + 1) / GameConfig.chunkSize, z / GameConfig.chunkSize);
+                            
+                            // Vertex 3
+                            vertices.push(x, h3, z + 1);
+                            colors.push(...this.getColorFromHeight(h3).toArray());
+                            uvs.push(x / GameConfig.chunkSize, (z + 1) / GameConfig.chunkSize);
+                            
+                            // Vertex 4
+                            vertices.push(x + 1, h4, z + 1);
+                            colors.push(...this.getColorFromHeight(h4).toArray());
+                            uvs.push((x + 1) / GameConfig.chunkSize, (z + 1) / GameConfig.chunkSize);
+                            
+                            // Add indices for two triangles
+                            indices.push(
+                                baseIndex, baseIndex + 1, baseIndex + 2,
+                                baseIndex + 1, baseIndex + 3, baseIndex + 2
+                            );
+                        }
+                    }
+                    
+                    // Create buffer attributes
+                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                    geometry.setIndex(indices);
+                    geometry.computeVertexNormals();
+                    
+                    // Create material
+                    const material = new THREE.MeshLambertMaterial({ 
+                        vertexColors: true,
+                        side: THREE.DoubleSide
+                    });
+                    
+                    // Create mesh
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.set(chunkX * GameConfig.chunkSize, 0, chunkZ * GameConfig.chunkSize);
+                    mesh.receiveShadow = true;
+                    
+                    // Add to scene and store
+                    this.scene.add(mesh);
+                    this.terrainChunks[chunkKey] = mesh;
+                }
+                
+                updatePlayer(deltaTime) {
+                    if (!this.player) return;
+                    
+                    // Apply gravity if not grounded
+                    if (!this.player.isGrounded) {
+                        this.player.velocity.y += GameConfig.gravity * deltaTime;
+                    }
+                    
+                    // Update position based on velocity
+                    this.player.position.y += this.player.velocity.y * deltaTime;
+                    
+                    // Ground check
+                    const groundHeight = this.field.getHeight(this.player.position.x, this.player.position.z) + 1;
+                    if (this.player.position.y <= groundHeight) {
+                        this.player.position.y = groundHeight;
+                        this.player.velocity.y = 0;
+                        this.player.isGrounded = true;
+                    } else {
+                        this.player.isGrounded = false;
+                    }
+                    
+                    // Handle movement input
+                    if (document.pointerLockElement === this.canvas) {
+                        let moveDirection = new THREE.Vector3(0, 0, 0);
+                        
+                        // Forward/backward
+                        if (this.keys['w']) moveDirection.z -= 1;
+                        if (this.keys['s']) moveDirection.z += 1;
+                        
+                        // Left/right
+                        if (this.keys['a']) moveDirection.x -= 1;
+                        if (this.keys['d']) moveDirection.x += 1;
+                        
+                        // Normalize and apply camera rotation
+                        if (moveDirection.length() > 0) {
+                            moveDirection.normalize();
+                            
+                            // Get forward and right vectors from camera (using camera direction)
+                            const forward = new THREE.Vector3(0, 0, -1);
+                            forward.applyQuaternion(this.camera.quaternion);
+                            forward.y = 0; // Keep movement horizontal
+                            forward.normalize();
+                            
+                            const right = new THREE.Vector3(1, 0, 0);
+                            right.applyQuaternion(this.camera.quaternion);
+                            right.y = 0;
+                            right.normalize();
+                            
+                            // Calculate movement direction
+                            const movement = new THREE.Vector3()
+                                .addScaledVector(forward, -moveDirection.z)
+                                .addScaledVector(right, moveDirection.x);
+                            
+                            // Apply speed
+                            let moveSpeed = this.player.speed;
+                            if (this.keys['shift']) moveSpeed *= 2; // Run when shift is held
+                            
+                            // Update position
+                            this.player.position.add(movement.multiplyScalar(moveSpeed * deltaTime));
+                        }
+                        
+                        // Jump
+                        if (this.keys[' '] && this.player.isGrounded) {
+                            this.player.velocity.y = GameConfig.jumpForce;
+                            this.player.isGrounded = false;
+                            this.audioManager.playSound('jump', { volume: 0.8 });
+                        }
+                    }
+                    
+                    // Update player mesh position
+                    this.player.mesh.position.copy(this.player.position);
+                    
+                    // Update camera position
+                    this.camera.position.set(
+                        this.player.position.x,
+                        this.player.position.y + this.player.height * 0.8,
+                        this.player.position.z
+                    );
+                }
+                
+                updateEnemies(deltaTime) {
+                    for (let i = this.enemies.length - 1; i >= 0; i--) {
+                        const enemy = this.enemies[i];
+                        
+                        // Apply gravity
+                        if (!enemy.isGrounded) {
+                            enemy.velocity.y += GameConfig.gravity * deltaTime;
+                            enemy.mesh.position.y += enemy.velocity.y * deltaTime;
+                        }
+                        
+                        // Ground check
+                        const groundHeight = this.field.getHeight(enemy.mesh.position.x, enemy.mesh.position.z) + 1;
+                        if (enemy.mesh.position.y <= groundHeight) {
+                            enemy.mesh.position.y = groundHeight;
+                            enemy.velocity.y = 0;
+                            enemy.isGrounded = true;
+                        } else {
+                            enemy.isGrounded = false;
+                        }
+                        
+                        // Get terrain color at enemy position
+                        const terrainColor = this.getColorFromHeight(groundHeight - 1);
+                        
+                        // Don't move if on snow (white terrain)
+                        if (terrainColor.r === 1 && terrainColor.g === 1 && terrainColor.b === 1) {
+                            continue;
+                        }
+                        
+                        // Calculate distance to player
+                        const distanceVec = new THREE.Vector3().subVectors(
+                            this.player.position,
+                            enemy.mesh.position
+                        );
+                        const distance = distanceVec.length();
+                        
+                        // Check if within search radius
+                        if (distance < enemy.searchRadius) {
+                            // Line of sight check
+                            this.raycaster.set(
+                                enemy.mesh.position,
+                                distanceVec.clone().normalize()
+                            );
+                            const intersects = this.raycaster.intersectObjects(
+                                Object.values(this.terrainChunks),
+                                false
+                            );
+                            
+                            // If nothing blocking or player is closest
+                            if (intersects.length === 0 || intersects[0].distance > distance) {
+                                // Move towards player
+                                if (enemy.isGrounded) {
+                                    const direction = distanceVec.clone().normalize();
+                                    direction.y = 0;
+                                    
+                                    enemy.mesh.position.add(
+                                        direction.multiplyScalar(enemy.speed * deltaTime)
+                                    );
+                                    
+                                    // Update mesh rotation to face player
+                                    enemy.mesh.lookAt(
+                                        this.player.position.x,
+                                        enemy.mesh.position.y,
+                                        this.player.position.z
+                                    );
+                                }
+                                
+                                // Attack if in range
+                                if (distance < enemy.attackRange) {
+                                    enemy.attackTimer -= deltaTime;
+                                    if (enemy.attackTimer <= 0) {
+                                        // Attack player
+                                        this.damagePlayer(enemy.damage);
+                                        enemy.attackTimer = enemy.attackCooldown;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Prevent enemies from piling up
+                        for (let j = 0; j < this.enemies.length; j++) {
+                            if (i !== j) {
+                                const otherEnemy = this.enemies[j];
+                                const repelDist = new THREE.Vector3().subVectors(
+                                    enemy.mesh.position,
+                                    otherEnemy.mesh.position
+                                ).length();
+                                
+                                if (repelDist < 2) {
+                                    const repelDir = new THREE.Vector3().subVectors(
+                                        enemy.mesh.position,
+                                        otherEnemy.mesh.position
+                                    ).normalize();
+                                    
+                                    enemy.mesh.position.add(
+                                        repelDir.multiplyScalar(2 * deltaTime)
+                                    );
+                                }
+                            }
+                        }
+                        
+                        // Remove enemies too far from player
+                        if (distance > 50) {
+                            this.scene.remove(enemy.mesh);
+                            this.enemies.splice(i, 1);
+                        }
+                    }
+                }
+                
+                updateBullets(deltaTime) {
+                    for (let i = this.bullets.length - 1; i >= 0; i--) {
+                        const bullet = this.bullets[i];
+                        
+                        // Update lifetime
+                        bullet.lifetime -= deltaTime;
+                        if (bullet.lifetime <= 0) {
+                            this.scene.remove(bullet.mesh);
+                            this.bullets.splice(i, 1);
+                            continue;
+                        }
+                        
+                        // Update position
+                        const moveAmount = bullet.speed * deltaTime;
+                        const newPosition = bullet.mesh.position.clone().add(
+                            bullet.direction.clone().multiplyScalar(moveAmount)
+                        );
+                        
+                        // Check for collisions
+                        this.raycaster.set(
+                            bullet.mesh.position,
+                            bullet.direction,
+                            0,
+                            moveAmount
+                        );
+                        
+                        // Check terrain collision
+                        const terrainIntersects = this.raycaster.intersectObjects(
+                            Object.values(this.terrainChunks),
+                            false
+                        );
+                        
+                        // Check enemy collision
+                        const enemyMeshes = this.enemies.map(e => e.mesh);
+                        const enemyIntersects = this.raycaster.intersectObjects(enemyMeshes, false);
+                        
+                        // Check pickup collision
+                        const pickupMeshes = this.pickups.map(p => p.mesh);
+                        const pickupIntersects = this.raycaster.intersectObjects(pickupMeshes, false);
+                        
+                        // Handle collisions in order of closest
+                        const allIntersects = [
+                            ...terrainIntersects,
+                            ...enemyIntersects,
+                            ...pickupIntersects
+                        ].sort((a, b) => a.distance - b.distance);
+                        
+                        if (allIntersects.length > 0) {
+                            const hit = allIntersects[0];
+                            
+                            // Handle enemy hit
+                            const enemyIndex = enemyMeshes.indexOf(hit.object);
+                            if (enemyIndex !== -1) {
+                                this.damageEnemy(this.enemies[enemyIndex], bullet.damage);
+                            }
+                            
+                            // Handle pickup hit
+                            const pickupIndex = pickupMeshes.indexOf(hit.object);
+                            if (pickupIndex !== -1) {
+                                this.collectPickup(this.pickups[pickupIndex]);
+                            }
+                            
+                            // Remove bullet
+                            this.scene.remove(bullet.mesh);
+                            this.bullets.splice(i, 1);
+                        } else {
+                            // No collision, update position
+                            bullet.mesh.position.copy(newPosition);
+                        }
+                    }
+                }
+                
+                updatePickups(deltaTime) {
+                    for (let i = this.pickups.length - 1; i >= 0; i--) {
+                        const pickup = this.pickups[i];
+                        
+                        // Rotate pickup
+                        pickup.mesh.rotation.y += pickup.rotationSpeed * deltaTime;
+                        
+                        // Check if player is touching pickup
+                        const distance = new THREE.Vector3().subVectors(
+                            this.player.position,
+                            pickup.mesh.position
+                        ).length();
+                        
+                        if (distance < 1.5) {
+                            this.collectPickup(pickup);
+                        }
+                    }
+                }
+                
+                collectPickup(pickup) {
+                    // Apply pickup effect
+                    if (pickup.type === 'health') {
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + pickup.amount);
+                    } else {
+                        this.player.armor = Math.min(this.player.maxArmor, this.player.armor + pickup.amount);
+                    }
+                    
+                    // Update displays
+                    this.updateHealthDisplay();
+                    
+                    // Play pickup sound
+                    this.audioManager.playSound('pickup', { volume: 1.0 });
+                    
+                    // Remove pickup
+                    const index = this.pickups.indexOf(pickup);
+                    if (index !== -1) {
+                        this.scene.remove(pickup.mesh);
+                        this.pickups.splice(index, 1);
+                    }
+                }
+                
+                damageEnemy(enemy, amount) {
+                    enemy.health -= amount;
+                    
+                    // Update enemy color based on health
+                    const healthRatio = enemy.health / 100;
+                    const newColor = new THREE.Color().lerpColors(
+                        new THREE.Color(0xffffff),
+                        new THREE.Color(enemy.originalColor),
+                        healthRatio
+                    );
+                    
+                    enemy.mesh.material.color.copy(newColor);
+                    
+                    // Check if enemy died
+                    if (enemy.health <= 0) {
+                        this.killEnemy(enemy);
+                    }
+                }
+                
+                killEnemy(enemy) {
+                    // Play death sound
+                    this.audioManager.playSound('enemyDeath', { volume: 0.8 });
+                    
+                    // Speak death phrase
+                    speak(ENEMY_DEATH_PHRASES[Math.floor(Math.random() * ENEMY_DEATH_PHRASES.length)]);
+                    
+                    // Update score
+                    this.score += 50;
+                    this.updateScore();
+                    
+                    // Random chance to spawn pickup
+                    if (Math.random() < 0.3) {
+                        const pickup = {
+                            mesh: new THREE.Mesh(
+                                Math.random() < 0.7 ? 
+                                    new THREE.SphereGeometry(0.3, 8, 8) : 
+                                    new THREE.BoxGeometry(0.3, 0.3, 0.3),
+                                new THREE.MeshLambertMaterial({ 
+                                    color: Math.random() < 0.7 ? 0x00ff00 : 0x00aaff,
+                                    emissive: Math.random() < 0.7 ? 0x00ff00 : 0x00aaff,
+                                    emissiveIntensity: 0.3
+                                })
+                            ),
+                            type: Math.random() < 0.7 ? 'health' : 'armor',
+                            amount: 50,
+                            rotationSpeed: 2
+                        };
+                        
+                        pickup.mesh.position.copy(enemy.mesh.position);
+                        this.scene.add(pickup.mesh);
+                        this.pickups.push(pickup);
+                    }
+                    
+                    // Remove enemy
+                    const index = this.enemies.indexOf(enemy);
+                    if (index !== -1) {
+                        this.scene.remove(enemy.mesh);
+                        this.enemies.splice(index, 1);
+                    }
+                }
+                
+                damagePlayer(amount) {
+                    // Reduce damage
+                    amount *= 0.4;
+                    
+                    // Apply armor damage reduction
+                    if (this.player.armor > 0) {
+                        const armorDamage = Math.min(this.player.armor, amount * 0.7);
+                        this.player.armor = Math.max(0, this.player.armor - armorDamage);
+                        amount = Math.max(0, amount - armorDamage);
+                    }
+                    
+                    // Apply damage to health
+                    this.player.health = Math.max(0, this.player.health - amount);
+                    
+                    // Update health display
+                    this.updateHealthDisplay();
+                    
+                    // Check for death
+                    if (this.player.health <= 0) {
+                        this.gameOverScreen();
+                    }
+                }
+                
+                updateHealthDisplay() {
+                    // Update health bar
+                    this.healthFill.style.width = `${(this.player.health / this.player.maxHealth) * 100}%`;
+                    
+                    // Update armor bar
+                    this.armorFill.style.width = `${(this.player.armor / this.player.maxArmor) * 100}%`;
+                }
+                
+                updateScore() {
+                    this.scoreElement.textContent = `Score: ${this.score}`;
+                }
+                
+                /**
+                 * Updated rotateCamera to keep the horizon level:
+                 * We maintain separate pitch & yaw, then set camera rotation (pitch, yaw, 0).
+                 */
+                rotateCamera(deltaX, deltaY) {
+                    const sensitivity = 0.005;
+                    
+                    // Adjust yaw & pitch
+                    this.cameraYaw -= deltaX * sensitivity;
+                    this.cameraPitch -= deltaY * sensitivity;
+                    
+                    // Clamp pitch so we don't flip upside down
+                    this.cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.cameraPitch));
+                    
+                    // Set camera rotation with no roll
+                    this.camera.rotation.set(this.cameraPitch, this.cameraYaw, 0, 'YXZ');
+                }
+                
+                update(deltaTime) {
+                    if (!this.gameStarted || this.gamePaused || this.gameOver) return;
+                    
+                    // Update game components
+                    this.updateTerrain();
+                    this.updatePlayer(deltaTime);
+                    this.updateEnemies(deltaTime);
+                    this.updateBullets(deltaTime);
+                    this.updatePickups(deltaTime);
+                    
+                    // Continuous firing while mouse button held
+                    if (this.keys['mouse1']) {
+                        this.shoot();
+                    }
+                    
+                    // Enemy spawning
+                    this.enemySpawnTimer += deltaTime;
+                    if (this.enemySpawnTimer >= this.enemySpawnInterval) {
+                        this.enemySpawnTimer = 0;
+                        this.spawnEnemy();
+                    }
+                    
+                    // Pickup spawning
+                    this.pickupTimer += deltaTime;
+                    if (this.pickupTimer >= GameConfig.pickupInterval) {
+                        this.pickupTimer = 0;
+                        this.spawnPickup();
+                    }
+                    
+                    // Quote system
+                    this.quoteTimer += deltaTime;
+                    if (this.quoteTimer >= GameConfig.quoteInterval) {
+                        this.quoteTimer = 0;
+                        speak(NARRATIVE_QUOTES[Math.floor(Math.random() * NARRATIVE_QUOTES.length)]);
+                    }
+                }
+                
+                animate(time) {
+                    requestAnimationFrame((t) => this.animate(t));
+                    
+                    // Calculate delta time
+                    const deltaTime = (time - this.lastTime) / 1000;
+                    this.lastTime = time;
+                    
+                    // Cap delta time to avoid large jumps
+                    const clampedDelta = Math.min(deltaTime, 0.1);
+                    
+                    // Update game state
+                    this.update(clampedDelta);
+                    
+                    // Render scene
+                    this.renderer.render(this.scene, this.camera);
+                }
+            }
+            
+            // Start the game when the page loads
+            window.addEventListener('load', () => {
+                console.log("Window loaded, initializing game...");
+                const game = new CubeTrixGame();
+            });
+        });
+    </script>
+</body>
+</html>

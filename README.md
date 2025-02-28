@@ -1,5 +1,9 @@
 # CubeTrix
 
+The game is live at: 
+
+https://anttiluode.github.io/CubeTrixWeb/
+
 CubeTrix is a retro-inspired, procedurally generated terrain game where the landscape dynamically shifts. 
 
 ## Features
